@@ -225,6 +225,20 @@ resetForm.addEventListener("submit", async (event) => {
 
       // Administrator permissions and MFA checks
       // will be added before protected features launch.
+    
+const { data: isAdmin, error: adminError } =
+  await supabase.rpc("is_admin");
+
+if (adminError) throw adminError;
+
+if (isAdmin === true) {
+  message.textContent =
+    "Sign-in successful. Welcome, Administrator!";
+} else {
+  message.textContent =
+    "Sign-in successful. Welcome to Central MBC Connect!";
+}
+
     } catch (error) {
       message.textContent =
         "Sign-in failed. Check your email and password.";
