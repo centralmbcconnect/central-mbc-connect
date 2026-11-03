@@ -102,6 +102,11 @@
 
   <p id="admin-dashboard-message"
      role="status"></p>
+  
+<button type="button" id="sign-out-button">
+  Sign Out
+</button>
+
 </div>
  
 <div class="card">
@@ -270,6 +275,23 @@ document.getElementById("admin-dashboard").hidden = true;
 
     }
   });
+
+document.getElementById("sign-out-button").addEventListener("click", async () => {
+  const button = document.getElementById("sign-out-button");
+  button.disabled = true;
+
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+
+    document.getElementById("admin-dashboard").hidden = true;
+    document.getElementById("login-message").textContent = "You have signed out successfully.";
+  } catch (error) {
+    alert("Sign out failed. Please try again.");
+  } finally {
+    button.disabled = false;
+  }
+});
 
 </script>
 </body>
