@@ -69,6 +69,28 @@
 
     #add-admin-record-form textarea {
       resize: vertical;
+    }    #admin-dashboard button {
+      padding: 10px 16px;
+      border: 1px solid #194b35;
+      border-radius: 6px;
+      background: #194b35;
+      color: white;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    #admin-dashboard button:hover:not(:disabled) {
+      background: #123a29;
+    }
+
+    #admin-dashboard button:focus-visible {
+      outline: 3px solid #194b35;
+      outline-offset: 3px;
+    }
+
+    #admin-dashboard button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
   </style>
 </head>
