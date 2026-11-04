@@ -150,7 +150,25 @@
     <p id="admin-records-status" role="status">
       Records viewer is being prepared.
     </p>
-    <div id="admin-records-list"></div>
+    <div id="admin-records-list"></div>  <form id="add-admin-record-form">
+    <h4>Add Administrative Record</h4>
+    <fieldset id="add-admin-record-fields" disabled>
+      <p>
+        <label for="admin-record-title">Title</label><br>
+        <input type="text" id="admin-record-title"
+               maxlength="200" required>
+      </p>
+      <p>
+        <label for="admin-record-content">Content</label><br>
+        <textarea id="admin-record-content"
+                  rows="4" maxlength="10000"></textarea>
+      </p>
+      <button type="submit">Save Record</button>
+    </fieldset>
+    <p id="add-admin-record-status" role="status">
+      Add Record is being prepared.
+    </p>
+  </form>
   </section>
 </div>
  
@@ -206,14 +224,20 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); const adminDashboard 
 const recordsButton = document.getElementById("load-admin-records");
 const recordsStatus = document.getElementById("admin-records-status");
 const recordsList = document.getElementById("admin-records-list");
-
+const addRecordForm = document.getElementById("add-admin-record-form");
+const addRecordFields = document.getElementById("add-admin-record-fields");
+const addRecordStatus = document.getElementById("add-admin-record-status");
+const addRecordTitle = document.getElementById("admin-record-title");
+const addRecordContent = document.getElementById("admin-record-content");
 let recordsRequestId = 0;
-
+let addRecordRequestId = 0;
 function clearAdminRecords() {
-  recordsRequestId += 1;
+  recordsRequestId += 1;addRecordRequestId += 1;
   recordsButton.disabled = true;
   recordsList.replaceChildren();
-  recordsStatus.textContent = "Records viewer is being prepared.";
+  recordsStatus.textContent = "Records viewer is being prepared.";  addRecordFields.disabled = true;
+  addRecordForm.reset();
+  addRecordStatus.textContent = "Add Record is being prepared.";
 }
  
 const resetForm = document.getElementById("reset-password-form");
@@ -321,7 +345,8 @@ if (isAdmin === true) {
 adminDashboard.hidden = false;
 recordsButton.disabled = false;
 recordsStatus.textContent = "Select Load Records to view records.";;
-
+addRecordFields.disabled = false;
+addRecordStatus.textContent = "Enter a title and optional content, then select Save Record.";
 } else {
   message.textContent =
     "Sign-in successful. Welcome to Central MBC Connect!";
@@ -408,7 +433,56 @@ document.getElementById("sign-out-button").addEventListener("click", async () =>
     }
   }
 });
+addRecordForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (adminDashboard.hidden || addRecordFields.disabled) return;
 
+  const title = addRecordTitle.value.trim();
+  const content = addRecordContent.value.trim();
+
+  if (!title || title.length > 200 || content.length > 10000) {
+    addRecordStatus.textContent =
+      "Enter a title of 1–200 characters and content up to 10,000 characters.";
+    return;
+  }
+
+  const requestId = ++addRecordRequestId;
+  addRecordFields.disabled = true;
+  addRecordStatus.textContent = "Saving record...";
+
+  try {
+    const { data: allowed, error: permissionError } =
+      await supabase.rpc("is_admin");
+
+    if (requestId !== addRecordRequestId || adminDashboard.hidden) return;
+    if (permissionError) throw permissionError;
+
+    if (allowed !== true) {
+      adminDashboard.hidden = true;
+      clearAdminRecords();
+      return;
+    }
+
+    const { error } = await supabase
+      .from("church_admin_records")
+      .insert({ title, content: content || null });
+
+    if (requestId !== addRecordRequestId || adminDashboard.hidden) return;
+    if (error) throw error;
+
+    addRecordForm.reset();
+    addRecordStatus.textContent =
+      "Record saved. Select Load Records to refresh the list.";
+  } catch (error) {
+    if (requestId !== addRecordRequestId || adminDashboard.hidden) return;
+    addRecordStatus.textContent =
+      "Save could not be confirmed. Load Records before trying again.";
+  } finally {
+    if (requestId === addRecordRequestId && !adminDashboard.hidden) {
+      addRecordFields.disabled = false;
+    }
+  }
+});
 </script>
 </body>
 </html>
