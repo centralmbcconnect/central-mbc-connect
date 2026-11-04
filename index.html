@@ -202,7 +202,19 @@
 
 const SUPABASE_URL = "https://ksdjtqnfrrdvfyzocuai.supabase.co";
 const SUPABASE_KEY = "sb_publishable_NoaBJAT3yRLAkCk-lTqbiw_ZAr4-KxP";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); const adminDashboard = document.getElementById("admin-dashboard");
+const recordsButton = document.getElementById("load-admin-records");
+const recordsStatus = document.getElementById("admin-records-status");
+const recordsList = document.getElementById("admin-records-list");
+
+let recordsRequestId = 0;
+
+function clearAdminRecords() {
+  recordsRequestId += 1;
+  recordsButton.disabled = true;
+  recordsList.replaceChildren();
+  recordsStatus.textContent = "Records viewer is being prepared.";
+}
  
 const resetForm = document.getElementById("reset-password-form");
 const resetMessage = document.getElementById("reset-message");
@@ -211,7 +223,10 @@ resetForm.hidden = true;
 
 let recoveryVerified = false;
 
-supabase.auth.onAuthStateChange((event) => {
+supabase.auth.onAuthStateChange((event) => {  if (event === "SIGNED_OUT") {
+    adminDashboard.hidden = true;
+    clearAdminRecords();
+  }
   if (event === "PASSWORD_RECOVERY") {
     recoveryVerified = true;
     resetForm.hidden = false;
@@ -272,7 +287,8 @@ resetForm.addEventListener("submit", async (event) => {
   const message = document.getElementById("login-message");
 
   form.addEventListener("submit", async (event) => {
-    event.preventDefault();
+    event.preventDefault();  adminDashboard.hidden = true;
+  clearAdminRecords();
 
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
@@ -302,7 +318,9 @@ if (isAdmin === true) {
   message.textContent =
     "Sign-in successful. Welcome, Administrator!";
   
-document.getElementById("admin-dashboard").hidden = false;
+adminDashboard.hidden = false;
+recordsButton.disabled = false;
+recordsStatus.textContent = "Select Load Records to view records.";;
 
 } else {
   message.textContent =
@@ -335,6 +353,59 @@ document.getElementById("sign-out-button").addEventListener("click", async () =>
     alert("Sign out failed. Please try again.");
   } finally {
     button.disabled = false;
+  }
+});recordsButton.addEventListener("click", async () => {
+  if (adminDashboard.hidden) return;
+
+  const requestId = ++recordsRequestId;
+  recordsButton.disabled = true;
+  recordsList.replaceChildren();
+  recordsStatus.textContent = "Loading records...";
+
+  try {
+    const { data: allowed, error: permissionError } =
+      await supabase.rpc("is_admin");
+
+    if (requestId !== recordsRequestId) return;
+    if (permissionError) throw permissionError;
+
+    if (allowed !== true) {
+      adminDashboard.hidden = true;
+      clearAdminRecords();
+      return;
+    }
+
+    const { data: records, error } = await supabase
+      .from("church_admin_records")
+      .select("id, title, content, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (requestId !== recordsRequestId || adminDashboard.hidden) return;
+    if (error) throw error;
+
+    for (const record of records) {
+      const article = document.createElement("article");
+      const heading = document.createElement("h4");
+      const content = document.createElement("p");
+
+      heading.textContent = record.title;
+      content.textContent = record.content ?? "";
+      article.append(heading, content);
+      recordsList.append(article);
+    }
+
+    recordsStatus.textContent = records.length
+      ? "Showing up to 20 most recent records."
+      : "No administrative records found.";
+  } catch (error) {
+    if (requestId !== recordsRequestId || adminDashboard.hidden) return;
+    recordsList.replaceChildren();
+    recordsStatus.textContent = "Unable to load records. Please try again.";
+  } finally {
+    if (requestId === recordsRequestId && !adminDashboard.hidden) {
+      recordsButton.disabled = false;
+    }
   }
 });
 
