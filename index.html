@@ -454,13 +454,23 @@ document.getElementById("sign-out-button").addEventListener("click", async () =>
 
     for (const record of records) {
       const article = document.createElement("article");
-      const heading = document.createElement("h4");
-      const content = document.createElement("p");
+const heading = document.createElement("h4");
+const date = document.createElement("p");
+const content = document.createElement("p");
 
-      heading.textContent = record.title;
-      content.textContent = record.content ?? "";
-      article.append(heading, content);
-      recordsList.append(article);
+heading.textContent = record.title;
+date.textContent = "Created: " + new Date(record.created_at).toLocaleString(
+  "en-US",
+  {
+    timeZone: "America/Chicago",
+    dateStyle: "medium",
+    timeStyle: "short"
+  }
+);
+content.textContent = record.content ?? "";
+
+article.append(heading, date, content);
+recordsList.append(article);
     }
 
     recordsStatus.textContent = records.length
