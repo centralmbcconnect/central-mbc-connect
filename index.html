@@ -54,7 +54,7 @@
       padding: 0;
       border: 0;
     }
-
+    #admin-record-search,
     #add-admin-record-form input,
     #add-admin-record-form textarea {
       box-sizing: border-box;
@@ -186,7 +186,16 @@
     <p><em>Coming soon.</em></p>
   </section>  <section aria-labelledby="records-heading">
     <h3 id="records-heading">Administrative Records</h3>
-    <p>View records available to approved administrators.</p>
+    <p>View records available to approved administrators.</p>  <p>
+    <label for="admin-record-search">Search by title</label><br>
+    <input type="search" id="admin-record-search"
+           maxlength="200" disabled
+           aria-describedby="admin-record-search-help">
+  </p>
+  <p id="admin-record-search-help">
+    Enter part of a title, then select Load Records.
+    Leave blank to load the latest records.
+  </p>
     <button type="button" id="load-admin-records" disabled>
       Load Records
     </button>
@@ -267,6 +276,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); const adminDashboard 
 const recordsButton = document.getElementById("load-admin-records");
 const recordsStatus = document.getElementById("admin-records-status");
 const recordsList = document.getElementById("admin-records-list");
+  const recordsSearch = document.getElementById("admin-record-search");
 const addRecordForm = document.getElementById("add-admin-record-form");
 const addRecordFields = document.getElementById("add-admin-record-fields");
 const addRecordStatus = document.getElementById("add-admin-record-status");
@@ -276,7 +286,8 @@ let recordsRequestId = 0;
 let addRecordRequestId = 0;
 function clearAdminRecords() {
   recordsRequestId += 1;addRecordRequestId += 1;
-  recordsButton.disabled = true;
+  recordsButton.disabled = true;recordsSearch.disabled = true;
+recordsSearch.value = "";
   recordsList.replaceChildren();
   recordsStatus.textContent = "Records viewer is being prepared.";  addRecordFields.disabled = true;
   addRecordForm.reset();
@@ -387,6 +398,7 @@ if (isAdmin === true) {
   
 adminDashboard.hidden = false;
 recordsButton.disabled = false;
+  recordsSearch.disabled = false;
 recordsStatus.textContent = "Select Load Records to view records.";;
 addRecordFields.disabled = false;
 addRecordStatus.textContent = "Enter a title and optional content, then select Save Record.";
@@ -443,11 +455,20 @@ document.getElementById("sign-out-button").addEventListener("click", async () =>
       return;
     }
 
-    const { data: records, error } = await supabase
-      .from("church_admin_records")
-      .select("id, title, content, created_at")
-      .order("created_at", { ascending: false })
-      .limit(20);
+    const searchTitle = recordsSearch.value.trim();
+
+let query = supabase
+  .from("church_admin_records")
+  .select("id, title, content, created_at");
+
+if (searchTitle) {
+  const escapedTitle = searchTitle.replace(/[\\%_]/g, "\\$&");
+  query = query.ilike("title", "%" + escapedTitle + "%");
+}
+
+const { data: records, error } = await query
+  .order("created_at", { ascending: false })
+  .limit(20);
 
     if (requestId !== recordsRequestId || adminDashboard.hidden) return;
     if (error) throw error;
@@ -473,9 +494,15 @@ article.append(heading, date, content);
 recordsList.append(article);
     }
 
-    recordsStatus.textContent = records.length
-      ? "Showing up to 20 most recent records."
-      : "No administrative records found.";
+    if (searchTitle) {
+  recordsStatus.textContent = records.length
+    ? "Showing up to 20 matching records."
+    : "No records match that title.";
+} else {
+  recordsStatus.textContent = records.length
+    ? "Showing up to 20 most recent records."
+    : "No administrative records found.";
+}
   } catch (error) {
     if (requestId !== recordsRequestId || adminDashboard.hidden) return;
     recordsList.replaceChildren();
