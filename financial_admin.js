@@ -116,27 +116,37 @@ async function loadFinance() {
     const startDate = month + "-01";
     const next = new Date(year,monthNumber,1);
     const endDate = next.getFullYear()+"-"+String(next.getMonth()+1).padStart(2,"0")+"-01";
-    const {data:entries,error:e1} = await supabase.from("church_financial_entries")
-      .select("id,entry_date,type,category,description,amount").gte("entry_date",startDate)
-      .lt("entry_date",endDate).order("entry_date",{ascending:false}).limit(1000);
-    if (e1) throw e1;
-    const {data:budgets,error:e2} = await supabase.from("church_monthly_budgets")
-      .select("id,budget_month,category,planned_amount").eq("budget_month",startDate)
-      .order("category",{ascending:true}).limit(500);
-    if (e2) throw e2;
+    const entries = [];
+    for (let offset=0; ; offset+=1000) {
+      const {data:batch,error} = await supabase.from("church_financial_entries")
+        .select("id,entry_date,type,category,description,amount").gte("entry_date",startDate)
+        .lt("entry_date",endDate).order("entry_date",{ascending:false}).range(offset,offset+999);
+      if (error) throw error;
+      entries.push(...batch);
+      if (batch.length < 1000) break;
+    }
+    const budgets = [];
+    for (let offset=0; ; offset+=500) {
+      const {data:batch,error} = await supabase.from("church_monthly_budgets")
+        .select("id,budget_month,category,planned_amount").eq("budget_month",startDate)
+        .order("category",{ascending:true}).range(offset,offset+499);
+      if (error) throw error;
+      budgets.push(...batch);
+      if (batch.length < 500) break;
+    }
     if (current !== requestId || dashboard.hidden) return;
-    const income = entries.filter(x=>x.type==="income").reduce((n,x)=>n+Number(x.amount),0);
-    const expenses = entries.filter(x=>x.type==="expense").reduce((n,x)=>n+Number(x.amount),0);
-    const planned = budgets.reduce((n,x)=>n+Number(x.planned_amount),0);
+    const income = entries.filter(x=>x.type==="income").reduce((n,x)=>n+Math.round(Number(x.amount)*100),0)/100;
+    const expenses = entries.filter(x=>x.type==="expense").reduce((n,x)=>n+Math.round(Number(x.amount)*100),0)/100;
+    const planned = budgets.reduce((n,x)=>n+Math.round(Number(x.planned_amount)*100),0)/100;
     for (const [label,value] of [["Income",income],["Expenses",expenses],["Net",income-expenses],["Budgeted",planned]]) {
       const card=document.createElement("div"), heading=document.createElement("strong"), total=document.createElement("span");
       heading.textContent=label; total.textContent=money(value); card.append(heading,total); summary.append(card);
     }
-    entries.forEach(x=>entriesList.append(entryRow(x)));
-    budgets.forEach(x=>budgetsList.append(budgetRow(x)));
+    entries.slice(0,100).forEach(x=>entriesList.append(entryRow(x)));
+    budgets.slice(0,100).forEach(x=>budgetsList.append(budgetRow(x)));
     if (!entries.length) entriesList.textContent="No income or expense entries for this month.";
     if (!budgets.length) budgetsList.textContent="No monthly budgets set.";
-    status.textContent="Monthly totals for "+month+"; includes up to 1,000 entries.";
+    status.textContent="Monthly totals for "+month+" include all entries and budgets; showing up to 100 of each for review.";
   } catch (error) {
     if (current===requestId && !dashboard.hidden) status.textContent="Unable to load financial records. Please try again.";
   }
@@ -207,9 +217,14 @@ async function updateAdminView() {
       monthInput.value=monthValue();
       document.getElementById("finance-budget-month").value=monthInput.value;
       document.getElementById("finance-entry-date").value=dateValue();
+      if (dashboard.hidden) return;
       await loadFinance();
     } catch(error) { clearFinance(); }
   },0);
 }
 supabase.auth.onAuthStateChange(updateAdminView);
+new MutationObserver(() => {
+  if (dashboard.hidden) clearFinance();
+  else updateAdminView();
+}).observe(dashboard, {attributes:true,attributeFilter:["hidden"]});
 updateAdminView();
