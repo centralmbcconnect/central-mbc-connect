@@ -116,6 +116,13 @@
     }
     #event-form textarea { resize: vertical; }
     #event-form label { display: block; text-align: left; }
+    #ministry-form input[type="text"],
+    #ministry-form textarea {
+      box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #aab8ad;
+      border-radius: 6px; font: inherit; color: inherit; background: white;
+    }
+    #ministry-form textarea { resize: vertical; }
+    #ministry-form label { display: block; text-align: left; }
   </style>
 </head>
 <body>
@@ -152,6 +159,12 @@
       <h2 id="public-events-heading">Upcoming Church Events</h2>
       <p id="public-events-status" role="status">Loading events...</p>
       <div id="public-events-list"></div>
+    </section>
+
+    <section class="card" aria-labelledby="public-ministries-heading">
+      <h2 id="public-ministries-heading">Our Ministries</h2>
+      <p id="public-ministries-status" role="status">Loading ministries...</p>
+      <div id="public-ministries-list"></div>
     </section>
 
     <div class="card">
@@ -206,8 +219,33 @@
     <p><em>Coming soon.</em></p>
   </section>  <section aria-labelledby="ministry-heading">
     <h3 id="ministry-heading">Ministry Management</h3>
-    <p>Ministry teams, leaders, and activities.</p>
-    <p><em>Coming soon.</em></p>
+    <p>Create ministry listings here. Published ministries appear on the public homepage.</p>
+    <form id="ministry-form">
+      <input type="hidden" id="ministry-id">
+      <p><label for="ministry-name">Ministry name</label>
+        <input type="text" id="ministry-name" maxlength="200" required>
+      </p>
+      <p><label for="ministry-description">Description</label>
+        <textarea id="ministry-description" rows="4" maxlength="5000"></textarea>
+      </p>
+      <p><label for="ministry-leader">Leader (optional)</label>
+        <input type="text" id="ministry-leader" maxlength="200">
+      </p>
+      <p><label for="ministry-meeting-info">Meeting day and time (optional)</label>
+        <input type="text" id="ministry-meeting-info" maxlength="300">
+      </p>
+      <p><label><input type="checkbox" id="ministry-published"> Publish on the public homepage</label></p>
+      <div class="announcement-actions">
+        <button type="submit" id="save-ministry-button">Save Ministry</button>
+        <button type="button" id="cancel-ministry-edit" hidden>Cancel Edit</button>
+      </div>
+      <p id="ministry-form-status" role="status"></p>
+    </form>
+    <div class="announcement-actions">
+      <button type="button" id="refresh-ministries">Refresh Ministries</button>
+    </div>
+    <p id="admin-ministries-status" role="status">Ministries are ready to load.</p>
+    <div id="admin-ministries-list"></div>
   </section>  <section aria-labelledby="events-heading">
     <h3 id="events-heading">Church Events</h3>
     <p>Add events here. Published upcoming events appear on the public homepage.</p>
@@ -394,6 +432,23 @@ const cancelEventEditButton = document.getElementById("cancel-event-edit");
 const refreshEventsButton = document.getElementById("refresh-events");
 const adminEventsStatus = document.getElementById("admin-events-status");
 const adminEventsList = document.getElementById("admin-events-list");
+const publicMinistriesStatus = document.getElementById("public-ministries-status");
+const publicMinistriesList = document.getElementById("public-ministries-list");
+const ministryForm = document.getElementById("ministry-form");
+const ministryId = document.getElementById("ministry-id");
+const ministryName = document.getElementById("ministry-name");
+const ministryDescription = document.getElementById("ministry-description");
+const ministryLeader = document.getElementById("ministry-leader");
+const ministryMeetingInfo = document.getElementById("ministry-meeting-info");
+const ministryPublished = document.getElementById("ministry-published");
+const ministryFormStatus = document.getElementById("ministry-form-status");
+const saveMinistryButton = document.getElementById("save-ministry-button");
+const cancelMinistryEditButton = document.getElementById("cancel-ministry-edit");
+const refreshMinistriesButton = document.getElementById("refresh-ministries");
+const adminMinistriesStatus = document.getElementById("admin-ministries-status");
+const adminMinistriesList = document.getElementById("admin-ministries-list");
+let ministrySaveInProgress = false;
+let ministryListRequestId = 0;
 let eventSaveInProgress = false;
 let eventListRequestId = 0;
 let announcementSaveInProgress = false;
@@ -747,6 +802,167 @@ async function deleteEvent(event) {
   }
 }
 
+function createMinistryItem(ministry, includeActions) {
+  const article = document.createElement("article");
+  article.className = "announcement-item";
+  const heading = document.createElement("h3");
+  heading.textContent = ministry.name;
+  article.append(heading);
+  if (ministry.description) {
+    const description = document.createElement("p");
+    description.className = "announcement-content";
+    description.textContent = ministry.description;
+    article.append(description);
+  }
+  if (ministry.leader) {
+    const leader = document.createElement("p");
+    leader.className = "announcement-date";
+    leader.textContent = "Leader: " + ministry.leader;
+    article.append(leader);
+  }
+  if (ministry.meeting_info) {
+    const meeting = document.createElement("p");
+    meeting.className = "announcement-date";
+    meeting.textContent = "Meetings: " + ministry.meeting_info;
+    article.append(meeting);
+  }
+
+  if (includeActions) {
+    const status = document.createElement("p");
+    status.className = "announcement-status";
+    status.textContent = ministry.published ? "Published" : "Draft";
+    const actions = document.createElement("div");
+    actions.className = "announcement-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => {
+      ministryId.value = ministry.id;
+      ministryName.value = ministry.name;
+      ministryDescription.value = ministry.description || "";
+      ministryLeader.value = ministry.leader || "";
+      ministryMeetingInfo.value = ministry.meeting_info || "";
+      ministryPublished.checked = ministry.published;
+      saveMinistryButton.textContent = "Update Ministry";
+      cancelMinistryEditButton.hidden = false;
+      ministryFormStatus.textContent = "Editing ministry.";
+      ministryName.focus();
+    });
+    const publish = document.createElement("button");
+    publish.type = "button";
+    publish.textContent = ministry.published ? "Unpublish" : "Publish";
+    publish.addEventListener("click", () => updateMinistryStatus(ministry));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => deleteMinistry(ministry));
+    actions.append(edit, publish, remove);
+    article.append(status, actions);
+  }
+  return article;
+}
+
+async function loadPublicMinistries() {
+  publicMinistriesStatus.textContent = "Loading ministries...";
+  publicMinistriesList.replaceChildren();
+  try {
+    const { data, error } = await supabase
+      .from("church_ministries")
+      .select("id, name, description, leader, meeting_info")
+      .eq("published", true)
+      .order("name", { ascending: true })
+      .limit(30);
+    if (error) throw error;
+    if (!data.length) {
+      publicMinistriesStatus.textContent = "Ministry listings will be added soon.";
+      return;
+    }
+    for (const ministry of data) publicMinistriesList.append(createMinistryItem(ministry, false));
+    publicMinistriesStatus.textContent = "";
+  } catch (error) {
+    publicMinistriesList.replaceChildren();
+    publicMinistriesStatus.textContent =
+      "Ministry listings are temporarily unavailable. Please check back soon.";
+  }
+}
+
+async function loadAdminMinistries() {
+  if (adminDashboard.hidden) return;
+  const requestId = ++ministryListRequestId;
+  refreshMinistriesButton.disabled = true;
+  adminMinistriesStatus.textContent = "Loading ministries...";
+  adminMinistriesList.replaceChildren();
+  try {
+    if (!(await verifyAnnouncementAdmin())) {
+      adminDashboard.hidden = true;
+      resetMinistryForm();
+      return;
+    }
+    const { data, error } = await supabase
+      .from("church_ministries")
+      .select("id, name, description, leader, meeting_info, published")
+      .order("name", { ascending: true })
+      .limit(100);
+    if (requestId !== ministryListRequestId || adminDashboard.hidden) return;
+    if (error) throw error;
+    if (!data.length) {
+      adminMinistriesStatus.textContent = "No ministries yet. Add one above.";
+      return;
+    }
+    for (const ministry of data) adminMinistriesList.append(createMinistryItem(ministry, true));
+    adminMinistriesStatus.textContent = "Showing up to 100 ministries, including drafts.";
+  } catch (error) {
+    if (requestId !== ministryListRequestId || adminDashboard.hidden) return;
+    adminMinistriesStatus.textContent = "Unable to load ministries. Please try again.";
+  } finally {
+    if (requestId === ministryListRequestId) refreshMinistriesButton.disabled = false;
+  }
+}
+
+function resetMinistryForm() {
+  ministryForm.reset();
+  ministryId.value = "";
+  saveMinistryButton.textContent = "Save Ministry";
+  cancelMinistryEditButton.hidden = true;
+  ministryFormStatus.textContent = "";
+}
+
+async function updateMinistryStatus(ministry) {
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const { data, error } = await supabase
+      .from("church_ministries")
+      .update({ published: !ministry.published })
+      .eq("id", ministry.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw error || new Error("Ministry was not updated.");
+    await loadAdminMinistries();
+    await loadPublicMinistries();
+  } catch (error) {
+    adminMinistriesStatus.textContent = "Could not update the ministry. Please try again.";
+  }
+}
+
+async function deleteMinistry(ministry) {
+  if (!window.confirm("Delete \"" + ministry.name + "\"? This cannot be undone.")) return;
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const { data, error } = await supabase
+      .from("church_ministries")
+      .delete()
+      .eq("id", ministry.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw error || new Error("Ministry was not deleted.");
+    resetMinistryForm();
+    await loadAdminMinistries();
+    await loadPublicMinistries();
+  } catch (error) {
+    adminMinistriesStatus.textContent = "Could not delete the ministry. Please try again.";
+  }
+}
+
 function clearAdminRecords() {
   recordsRequestId += 1;addRecordRequestId += 1;
   recordsButton.disabled = true;recordsSearch.disabled = true;
@@ -862,6 +1078,7 @@ if (isAdmin === true) {
 adminDashboard.hidden = false;
 loadAdminAnnouncements();
 loadAdminEvents();
+loadAdminMinistries();
 recordsButton.disabled = false;
   recordsSearch.disabled = false;
 recordsStatus.textContent = "Select Load Records to view records.";;
@@ -978,6 +1195,59 @@ recordsList.append(article);
     }
   }
 });
+refreshMinistriesButton.addEventListener("click", loadAdminMinistries);
+cancelMinistryEditButton.addEventListener("click", resetMinistryForm);
+
+ministryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (adminDashboard.hidden || ministrySaveInProgress) return;
+  const name = ministryName.value.trim();
+  const description = ministryDescription.value.trim();
+  const leader = ministryLeader.value.trim();
+  const meetingInfo = ministryMeetingInfo.value.trim();
+  if (!name || name.length > 200 || description.length > 5000 ||
+      leader.length > 200 || meetingInfo.length > 300) {
+    ministryFormStatus.textContent = "Check the ministry name and details, then try again.";
+    return;
+  }
+
+  ministrySaveInProgress = true;
+  saveMinistryButton.disabled = true;
+  ministryFormStatus.textContent = "Saving ministry...";
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const values = {
+      name,
+      description: description || null,
+      leader: leader || null,
+      meeting_info: meetingInfo || null,
+      published: ministryPublished.checked
+    };
+    let result;
+    if (ministryId.value) {
+      result = await supabase.from("church_ministries")
+        .update(values).eq("id", ministryId.value).select("id").maybeSingle();
+    } else {
+      result = await supabase.from("church_ministries")
+        .insert(values).select("id").single();
+    }
+    if (result.error || !result.data) {
+      throw result.error || new Error("Ministry was not saved.");
+    }
+    resetMinistryForm();
+    ministryFormStatus.textContent = "Ministry saved.";
+    await loadAdminMinistries();
+    await loadPublicMinistries();
+  } catch (error) {
+    ministryFormStatus.textContent = "Could not save the ministry. Please try again.";
+  } finally {
+    ministrySaveInProgress = false;
+    saveMinistryButton.disabled = false;
+  }
+});
+
+loadPublicMinistries();
+
 refreshEventsButton.addEventListener("click", loadAdminEvents);
 cancelEventEditButton.addEventListener("click", resetEventForm);
 
