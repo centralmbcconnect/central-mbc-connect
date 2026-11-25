@@ -93,6 +93,21 @@
       opacity: 0.55;
       cursor: not-allowed;
     }
+    .announcement-item { padding: 14px 0; border-top: 1px solid #d8dfd8; text-align: left; }
+    .announcement-item:first-child { border-top: 0; }
+    .announcement-item h3 { margin: 0 0 6px; }
+    .announcement-date { margin: 0 0 8px; color: #53675a; font-size: 0.9rem; }
+    .announcement-content { margin: 0; white-space: pre-wrap; }
+    .announcement-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .announcement-actions button { padding: 8px 12px; }
+    #announcement-form input[type="text"],
+    #announcement-form textarea {
+      box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #aab8ad;
+      border-radius: 6px; font: inherit; color: inherit; background: white;
+    }
+    #announcement-form textarea { resize: vertical; }
+    #announcement-form label { display: block; text-align: left; }
+    .announcement-status { font-weight: bold; }
   </style>
 </head>
 <body>
@@ -118,6 +133,12 @@
       <p>Wednesday Prayer and Bible Study:
          4:45 PM</p>
     </div>
+
+    <section class="card" aria-labelledby="public-announcements-heading">
+      <h2 id="public-announcements-heading">Church Announcements</h2>
+      <p id="public-announcements-status" role="status">Loading announcements...</p>
+      <div id="public-announcements-list"></div>
+    </section>
 
     <div class="card">
 <h2>Member Login</h2>
@@ -179,8 +200,27 @@
     <p><em>Coming soon.</em></p>
   </section>  <section aria-labelledby="announcements-heading">
     <h3 id="announcements-heading">Announcements</h3>
-    <p>Church news, notices, and updates.</p>
-    <p><em>Coming soon.</em></p>
+    <p>Create announcements here. Drafts are visible only to administrators; published items appear on the public homepage.</p>
+    <form id="announcement-form">
+      <input type="hidden" id="announcement-id">
+      <p><label for="announcement-title">Title</label>
+        <input type="text" id="announcement-title" maxlength="200" required>
+      </p>
+      <p><label for="announcement-content">Announcement</label>
+        <textarea id="announcement-content" rows="4" maxlength="10000"></textarea>
+      </p>
+      <p><label><input type="checkbox" id="announcement-published"> Publish on the public homepage</label></p>
+      <div class="announcement-actions">
+        <button type="submit" id="save-announcement-button">Save Announcement</button>
+        <button type="button" id="cancel-announcement-edit" hidden>Cancel Edit</button>
+      </div>
+      <p id="announcement-form-status" role="status"></p>
+    </form>
+    <div class="announcement-actions">
+      <button type="button" id="refresh-announcements">Refresh Announcements</button>
+    </div>
+    <p id="admin-announcements-status" role="status">Announcements are ready to load.</p>
+    <div id="admin-announcements-list"></div>
   </section>  <section aria-labelledby="finance-heading">
     <h3 id="finance-heading">Financial Administration</h3>
     <p>Church budgets, expenses, and financial reports.</p>
@@ -283,8 +323,192 @@ const addRecordFields = document.getElementById("add-admin-record-fields");
 const addRecordStatus = document.getElementById("add-admin-record-status");
 const addRecordTitle = document.getElementById("admin-record-title");
 const addRecordContent = document.getElementById("admin-record-content");
+const publicAnnouncementsStatus = document.getElementById("public-announcements-status");
+const publicAnnouncementsList = document.getElementById("public-announcements-list");
+const announcementForm = document.getElementById("announcement-form");
+const announcementId = document.getElementById("announcement-id");
+const announcementTitle = document.getElementById("announcement-title");
+const announcementContent = document.getElementById("announcement-content");
+const announcementPublished = document.getElementById("announcement-published");
+const announcementFormStatus = document.getElementById("announcement-form-status");
+const saveAnnouncementButton = document.getElementById("save-announcement-button");
+const cancelAnnouncementEditButton = document.getElementById("cancel-announcement-edit");
+const refreshAnnouncementsButton = document.getElementById("refresh-announcements");
+const adminAnnouncementsStatus = document.getElementById("admin-announcements-status");
+const adminAnnouncementsList = document.getElementById("admin-announcements-list");
+let announcementSaveInProgress = false;
+let announcementListRequestId = 0;
 let recordsRequestId = 0;
 let addRecordRequestId = 0;
+function formatAnnouncementDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", {
+    timeZone: "America/Chicago", dateStyle: "medium", timeStyle: "short"
+  });
+}
+
+function createAnnouncementItem(announcement, includeActions) {
+  const article = document.createElement("article");
+  article.className = "announcement-item";
+  const heading = document.createElement("h3");
+  heading.textContent = announcement.title;
+  const date = document.createElement("p");
+  date.className = "announcement-date";
+  date.textContent = formatAnnouncementDate(announcement.created_at);
+  const content = document.createElement("p");
+  content.className = "announcement-content";
+  content.textContent = announcement.content || "";
+  article.append(heading, date);
+  if (content.textContent) article.append(content);
+
+  if (includeActions) {
+    const status = document.createElement("p");
+    status.className = "announcement-status";
+    status.textContent = announcement.published ? "Published" : "Draft";
+    const actions = document.createElement("div");
+    actions.className = "announcement-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => {
+      announcementId.value = announcement.id;
+      announcementTitle.value = announcement.title;
+      announcementContent.value = announcement.content || "";
+      announcementPublished.checked = announcement.published;
+      saveAnnouncementButton.textContent = "Update Announcement";
+      cancelAnnouncementEditButton.hidden = false;
+      announcementFormStatus.textContent = "Editing announcement.";
+      announcementTitle.focus();
+    });
+    const publish = document.createElement("button");
+    publish.type = "button";
+    publish.textContent = announcement.published ? "Unpublish" : "Publish";
+    publish.addEventListener("click", () => updateAnnouncementStatus(announcement));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => deleteAnnouncement(announcement));
+    actions.append(edit, publish, remove);
+    article.append(status, actions);
+  }
+  return article;
+}
+
+async function loadPublicAnnouncements() {
+  publicAnnouncementsStatus.textContent = "Loading announcements...";
+  publicAnnouncementsList.replaceChildren();
+  try {
+    const { data, error } = await supabase
+      .from("church_announcements")
+      .select("id, title, content, created_at")
+      .eq("published", true)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    if (!data.length) {
+      publicAnnouncementsStatus.textContent = "There are no current announcements.";
+      return;
+    }
+    for (const announcement of data) {
+      publicAnnouncementsList.append(createAnnouncementItem(announcement, false));
+    }
+    publicAnnouncementsStatus.textContent = "";
+  } catch (error) {
+    publicAnnouncementsList.replaceChildren();
+    publicAnnouncementsStatus.textContent =
+      "Announcements are temporarily unavailable. Please check back soon.";
+  }
+}
+
+async function verifyAnnouncementAdmin() {
+  const { data, error } = await supabase.rpc("is_admin");
+  if (error) throw error;
+  return data === true;
+}
+
+function resetAnnouncementForm() {
+  announcementForm.reset();
+  announcementId.value = "";
+  saveAnnouncementButton.textContent = "Save Announcement";
+  cancelAnnouncementEditButton.hidden = true;
+  announcementFormStatus.textContent = "";
+}
+
+async function loadAdminAnnouncements() {
+  if (adminDashboard.hidden) return;
+  const requestId = ++announcementListRequestId;
+  refreshAnnouncementsButton.disabled = true;
+  adminAnnouncementsStatus.textContent = "Loading announcements...";
+  adminAnnouncementsList.replaceChildren();
+  try {
+    if (!(await verifyAnnouncementAdmin())) {
+      adminDashboard.hidden = true;
+      resetAnnouncementForm();
+      return;
+    }
+    const { data, error } = await supabase
+      .from("church_announcements")
+      .select("id, title, content, published, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (requestId !== announcementListRequestId || adminDashboard.hidden) return;
+    if (error) throw error;
+    if (!data.length) {
+      adminAnnouncementsStatus.textContent = "No announcements yet. Add one above.";
+      return;
+    }
+    for (const announcement of data) {
+      adminAnnouncementsList.append(createAnnouncementItem(announcement, true));
+    }
+    adminAnnouncementsStatus.textContent = "Showing the latest 50 announcements.";
+  } catch (error) {
+    if (requestId !== announcementListRequestId || adminDashboard.hidden) return;
+    adminAnnouncementsStatus.textContent =
+      "Unable to load announcements. Please try again.";
+  } finally {
+    if (requestId === announcementListRequestId) {
+      refreshAnnouncementsButton.disabled = false;
+    }
+  }
+}
+
+async function updateAnnouncementStatus(announcement) {
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const { data, error } = await supabase
+      .from("church_announcements")
+      .update({ published: !announcement.published })
+      .eq("id", announcement.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw error || new Error("Announcement was not updated.");
+    await loadAdminAnnouncements();
+    await loadPublicAnnouncements();
+  } catch (error) {
+    adminAnnouncementsStatus.textContent = "Could not update the announcement. Please try again.";
+  }
+}
+
+async function deleteAnnouncement(announcement) {
+  if (!window.confirm("Delete \"" + announcement.title + "\"? This cannot be undone.")) return;
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const { data, error } = await supabase
+      .from("church_announcements")
+      .delete()
+      .eq("id", announcement.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw error || new Error("Announcement was not deleted.");
+    resetAnnouncementForm();
+    await loadAdminAnnouncements();
+    await loadPublicAnnouncements();
+  } catch (error) {
+    adminAnnouncementsStatus.textContent = "Could not delete the announcement. Please try again.";
+  }
+}
+
 function clearAdminRecords() {
   recordsRequestId += 1;addRecordRequestId += 1;
   recordsButton.disabled = true;recordsSearch.disabled = true;
@@ -398,6 +622,7 @@ if (isAdmin === true) {
     "Sign-in successful. Welcome, Administrator!";
   
 adminDashboard.hidden = false;
+loadAdminAnnouncements();
 recordsButton.disabled = false;
   recordsSearch.disabled = false;
 recordsStatus.textContent = "Select Load Records to view records.";;
@@ -514,6 +739,62 @@ recordsList.append(article);
     }
   }
 });
+refreshAnnouncementsButton.addEventListener("click", loadAdminAnnouncements);
+cancelAnnouncementEditButton.addEventListener("click", resetAnnouncementForm);
+
+announcementForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (adminDashboard.hidden || announcementSaveInProgress) return;
+  const title = announcementTitle.value.trim();
+  const content = announcementContent.value.trim();
+  if (!title || title.length > 200 || content.length > 10000) {
+    announcementFormStatus.textContent =
+      "Enter a title of 1–200 characters and content up to 10,000 characters.";
+    return;
+  }
+  announcementSaveInProgress = true;
+  saveAnnouncementButton.disabled = true;
+  announcementFormStatus.textContent = "Saving announcement...";
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const values = {
+      title,
+      content: content || null,
+      published: announcementPublished.checked
+    };
+    let result;
+    if (announcementId.value) {
+      result = await supabase
+        .from("church_announcements")
+        .update(values)
+        .eq("id", announcementId.value)
+        .select("id")
+        .maybeSingle();
+    } else {
+      result = await supabase
+        .from("church_announcements")
+        .insert(values)
+        .select("id")
+        .single();
+    }
+    if (result.error || !result.data) {
+      throw result.error || new Error("Announcement was not saved.");
+    }
+    resetAnnouncementForm();
+    announcementFormStatus.textContent = "Announcement saved.";
+    await loadAdminAnnouncements();
+    await loadPublicAnnouncements();
+  } catch (error) {
+    announcementFormStatus.textContent =
+      "Could not save the announcement. Please try again.";
+  } finally {
+    announcementSaveInProgress = false;
+    saveAnnouncementButton.disabled = false;
+  }
+});
+
+loadPublicAnnouncements();
+
 addRecordForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (adminDashboard.hidden || addRecordFields.disabled) return;
