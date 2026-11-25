@@ -108,6 +108,14 @@
     #announcement-form textarea { resize: vertical; }
     #announcement-form label { display: block; text-align: left; }
     .announcement-status { font-weight: bold; }
+    #event-form input[type="text"],
+    #event-form input[type="datetime-local"],
+    #event-form textarea {
+      box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #aab8ad;
+      border-radius: 6px; font: inherit; color: inherit; background: white;
+    }
+    #event-form textarea { resize: vertical; }
+    #event-form label { display: block; text-align: left; }
   </style>
 </head>
 <body>
@@ -138,6 +146,12 @@
       <h2 id="public-announcements-heading">Church Announcements</h2>
       <p id="public-announcements-status" role="status">Loading announcements...</p>
       <div id="public-announcements-list"></div>
+    </section>
+
+    <section class="card" aria-labelledby="public-events-heading">
+      <h2 id="public-events-heading">Upcoming Church Events</h2>
+      <p id="public-events-status" role="status">Loading events...</p>
+      <div id="public-events-list"></div>
     </section>
 
     <div class="card">
@@ -196,8 +210,36 @@
     <p><em>Coming soon.</em></p>
   </section>  <section aria-labelledby="events-heading">
     <h3 id="events-heading">Church Events</h3>
-    <p>Church services, meetings, and special events.</p>
-    <p><em>Coming soon.</em></p>
+    <p>Add events here. Published upcoming events appear on the public homepage.</p>
+    <form id="event-form">
+      <input type="hidden" id="event-id">
+      <p><label for="event-title">Event title</label>
+        <input type="text" id="event-title" maxlength="200" required>
+      </p>
+      <p><label for="event-start">Start date and time</label>
+        <input type="datetime-local" id="event-start" required>
+      </p>
+      <p><label for="event-end">End date and time (optional)</label>
+        <input type="datetime-local" id="event-end">
+      </p>
+      <p><label for="event-location">Location</label>
+        <input type="text" id="event-location" maxlength="300">
+      </p>
+      <p><label for="event-description">Details</label>
+        <textarea id="event-description" rows="4" maxlength="10000"></textarea>
+      </p>
+      <p><label><input type="checkbox" id="event-published"> Publish on the public homepage</label></p>
+      <div class="announcement-actions">
+        <button type="submit" id="save-event-button">Save Event</button>
+        <button type="button" id="cancel-event-edit" hidden>Cancel Edit</button>
+      </div>
+      <p id="event-form-status" role="status"></p>
+    </form>
+    <div class="announcement-actions">
+      <button type="button" id="refresh-events">Refresh Events</button>
+    </div>
+    <p id="admin-events-status" role="status">Events are ready to load.</p>
+    <div id="admin-events-list"></div>
   </section>  <section aria-labelledby="announcements-heading">
     <h3 id="announcements-heading">Announcements</h3>
     <p>Create announcements here. Drafts are visible only to administrators; published items appear on the public homepage.</p>
@@ -336,6 +378,24 @@ const cancelAnnouncementEditButton = document.getElementById("cancel-announcemen
 const refreshAnnouncementsButton = document.getElementById("refresh-announcements");
 const adminAnnouncementsStatus = document.getElementById("admin-announcements-status");
 const adminAnnouncementsList = document.getElementById("admin-announcements-list");
+const publicEventsStatus = document.getElementById("public-events-status");
+const publicEventsList = document.getElementById("public-events-list");
+const eventForm = document.getElementById("event-form");
+const eventId = document.getElementById("event-id");
+const eventTitle = document.getElementById("event-title");
+const eventStart = document.getElementById("event-start");
+const eventEnd = document.getElementById("event-end");
+const eventLocation = document.getElementById("event-location");
+const eventDescription = document.getElementById("event-description");
+const eventPublished = document.getElementById("event-published");
+const eventFormStatus = document.getElementById("event-form-status");
+const saveEventButton = document.getElementById("save-event-button");
+const cancelEventEditButton = document.getElementById("cancel-event-edit");
+const refreshEventsButton = document.getElementById("refresh-events");
+const adminEventsStatus = document.getElementById("admin-events-status");
+const adminEventsList = document.getElementById("admin-events-list");
+let eventSaveInProgress = false;
+let eventListRequestId = 0;
 let announcementSaveInProgress = false;
 let announcementListRequestId = 0;
 let recordsRequestId = 0;
@@ -509,6 +569,184 @@ async function deleteAnnouncement(announcement) {
   }
 }
 
+function formatEventDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", {
+    timeZone: "America/Chicago", dateStyle: "medium", timeStyle: "short"
+  });
+}
+
+function toDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function createEventItem(event, includeActions) {
+  const article = document.createElement("article");
+  article.className = "announcement-item";
+  const heading = document.createElement("h3");
+  heading.textContent = event.title;
+  const date = document.createElement("p");
+  date.className = "announcement-date";
+  date.textContent = event.ends_at
+    ? formatEventDateTime(event.starts_at) + " – " + formatEventDateTime(event.ends_at)
+    : formatEventDateTime(event.starts_at);
+  article.append(heading, date);
+  if (event.location) {
+    const location = document.createElement("p");
+    location.className = "announcement-date";
+    location.textContent = "Location: " + event.location;
+    article.append(location);
+  }
+  if (event.description) {
+    const description = document.createElement("p");
+    description.className = "announcement-content";
+    description.textContent = event.description;
+    article.append(description);
+  }
+
+  if (includeActions) {
+    const status = document.createElement("p");
+    status.className = "announcement-status";
+    status.textContent = event.published ? "Published" : "Draft";
+    const actions = document.createElement("div");
+    actions.className = "announcement-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => {
+      eventId.value = event.id;
+      eventTitle.value = event.title;
+      eventStart.value = toDateTimeLocal(event.starts_at);
+      eventEnd.value = toDateTimeLocal(event.ends_at);
+      eventLocation.value = event.location || "";
+      eventDescription.value = event.description || "";
+      eventPublished.checked = event.published;
+      saveEventButton.textContent = "Update Event";
+      cancelEventEditButton.hidden = false;
+      eventFormStatus.textContent = "Editing event.";
+      eventTitle.focus();
+    });
+    const publish = document.createElement("button");
+    publish.type = "button";
+    publish.textContent = event.published ? "Unpublish" : "Publish";
+    publish.addEventListener("click", () => updateEventStatus(event));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => deleteEvent(event));
+    actions.append(edit, publish, remove);
+    article.append(status, actions);
+  }
+  return article;
+}
+
+async function loadPublicEvents() {
+  publicEventsStatus.textContent = "Loading events...";
+  publicEventsList.replaceChildren();
+  try {
+    const { data, error } = await supabase
+      .from("church_events")
+      .select("id, title, description, location, starts_at, ends_at")
+      .eq("published", true)
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(20);
+    if (error) throw error;
+    if (!data.length) {
+      publicEventsStatus.textContent = "There are no upcoming events.";
+      return;
+    }
+    for (const event of data) publicEventsList.append(createEventItem(event, false));
+    publicEventsStatus.textContent = "";
+  } catch (error) {
+    publicEventsList.replaceChildren();
+    publicEventsStatus.textContent =
+      "Upcoming events are temporarily unavailable. Please check back soon.";
+  }
+}
+
+async function loadAdminEvents() {
+  if (adminDashboard.hidden) return;
+  const requestId = ++eventListRequestId;
+  refreshEventsButton.disabled = true;
+  adminEventsStatus.textContent = "Loading events...";
+  adminEventsList.replaceChildren();
+  try {
+    if (!(await verifyAnnouncementAdmin())) {
+      adminDashboard.hidden = true;
+      resetEventForm();
+      return;
+    }
+    const { data, error } = await supabase
+      .from("church_events")
+      .select("id, title, description, location, starts_at, ends_at, published")
+      .order("starts_at", { ascending: true })
+      .limit(50);
+    if (requestId !== eventListRequestId || adminDashboard.hidden) return;
+    if (error) throw error;
+    if (!data.length) {
+      adminEventsStatus.textContent = "No events yet. Add one above.";
+      return;
+    }
+    for (const event of data) adminEventsList.append(createEventItem(event, true));
+    adminEventsStatus.textContent = "Showing up to 50 events, including drafts.";
+  } catch (error) {
+    if (requestId !== eventListRequestId || adminDashboard.hidden) return;
+    adminEventsStatus.textContent = "Unable to load events. Please try again.";
+  } finally {
+    if (requestId === eventListRequestId) refreshEventsButton.disabled = false;
+  }
+}
+
+function resetEventForm() {
+  eventForm.reset();
+  eventId.value = "";
+  saveEventButton.textContent = "Save Event";
+  cancelEventEditButton.hidden = true;
+  eventFormStatus.textContent = "";
+}
+
+async function updateEventStatus(event) {
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const { data, error } = await supabase
+      .from("church_events")
+      .update({ published: !event.published })
+      .eq("id", event.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw error || new Error("Event was not updated.");
+    await loadAdminEvents();
+    await loadPublicEvents();
+  } catch (error) {
+    adminEventsStatus.textContent = "Could not update the event. Please try again.";
+  }
+}
+
+async function deleteEvent(event) {
+  if (!window.confirm("Delete \"" + event.title + "\"? This cannot be undone.")) return;
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const { data, error } = await supabase
+      .from("church_events")
+      .delete()
+      .eq("id", event.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw error || new Error("Event was not deleted.");
+    resetEventForm();
+    await loadAdminEvents();
+    await loadPublicEvents();
+  } catch (error) {
+    adminEventsStatus.textContent = "Could not delete the event. Please try again.";
+  }
+}
+
 function clearAdminRecords() {
   recordsRequestId += 1;addRecordRequestId += 1;
   recordsButton.disabled = true;recordsSearch.disabled = true;
@@ -623,6 +861,7 @@ if (isAdmin === true) {
   
 adminDashboard.hidden = false;
 loadAdminAnnouncements();
+loadAdminEvents();
 recordsButton.disabled = false;
   recordsSearch.disabled = false;
 recordsStatus.textContent = "Select Load Records to view records.";;
@@ -739,6 +978,68 @@ recordsList.append(article);
     }
   }
 });
+refreshEventsButton.addEventListener("click", loadAdminEvents);
+cancelEventEditButton.addEventListener("click", resetEventForm);
+
+eventForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (adminDashboard.hidden || eventSaveInProgress) return;
+  const title = eventTitle.value.trim();
+  const startValue = eventStart.value;
+  const endValue = eventEnd.value;
+  const location = eventLocation.value.trim();
+  const description = eventDescription.value.trim();
+  if (!title || title.length > 200 || !startValue ||
+      (location.length > 300) || description.length > 10000) {
+    eventFormStatus.textContent = "Enter an event title, start date and time, and valid details.";
+    return;
+  }
+  const startsAtDate = new Date(startValue);
+  const endsAtDate = endValue ? new Date(endValue) : null;
+  if (Number.isNaN(startsAtDate.getTime()) ||
+      (endsAtDate && (Number.isNaN(endsAtDate.getTime()) || endsAtDate < startsAtDate))) {
+    eventFormStatus.textContent = "Check the event dates. The end must be after the start.";
+    return;
+  }
+
+  eventSaveInProgress = true;
+  saveEventButton.disabled = true;
+  eventFormStatus.textContent = "Saving event...";
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const values = {
+      title,
+      description: description || null,
+      location: location || null,
+      starts_at: startsAtDate.toISOString(),
+      ends_at: endsAtDate ? endsAtDate.toISOString() : null,
+      published: eventPublished.checked
+    };
+    let result;
+    if (eventId.value) {
+      result = await supabase.from("church_events")
+        .update(values).eq("id", eventId.value).select("id").maybeSingle();
+    } else {
+      result = await supabase.from("church_events")
+        .insert(values).select("id").single();
+    }
+    if (result.error || !result.data) {
+      throw result.error || new Error("Event was not saved.");
+    }
+    resetEventForm();
+    eventFormStatus.textContent = "Event saved.";
+    await loadAdminEvents();
+    await loadPublicEvents();
+  } catch (error) {
+    eventFormStatus.textContent = "Could not save the event. Please try again.";
+  } finally {
+    eventSaveInProgress = false;
+    saveEventButton.disabled = false;
+  }
+});
+
+loadPublicEvents();
+
 refreshAnnouncementsButton.addEventListener("click", loadAdminAnnouncements);
 cancelAnnouncementEditButton.addEventListener("click", resetAnnouncementForm);
 
