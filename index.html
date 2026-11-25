@@ -1063,18 +1063,34 @@ async function loadAdminMembers() {
       return;
     }
     const term = memberSearch.value.trim();
-    let query = supabase
-      .from("church_members")
-      .select("id, full_name, email, phone, created_at");
+    let data;
     if (term) {
-      const escaped = term.replace(/[\\%_]/g, "\\function clearAdminRecords() {");
-      query = query.or("full_name.ilike.%" + escaped + "%,email.ilike.%" + escaped + "%,phone.ilike.%" + escaped + "%");
+      const columns = ["full_name", "email", "phone"];
+      const results = await Promise.all(columns.map((column) =>
+        supabase.from("church_members")
+          .select("id, full_name, email, phone, created_at")
+          .ilike(column, "%" + term + "%")
+          .limit(100)
+      ));
+      const failed = results.find((result) => result.error);
+      if (failed) throw failed.error;
+      const unique = new Map();
+      for (const result of results) {
+        for (const member of result.data) unique.set(member.id, member);
+      }
+      data = Array.from(unique.values()).sort((a, b) =>
+        a.full_name.localeCompare(b.full_name)
+      ).slice(0, 100);
+    } else {
+      const result = await supabase
+        .from("church_members")
+        .select("id, full_name, email, phone, created_at")
+        .order("full_name", { ascending: true })
+        .limit(100);
+      if (result.error) throw result.error;
+      data = result.data;
     }
-    const { data, error } = await query
-      .order("full_name", { ascending: true })
-      .limit(100);
     if (requestId !== memberListRequestId || adminDashboard.hidden) return;
-    if (error) throw error;
     if (!data.length) {
       adminMembersStatus.textContent = term
         ? "No membership records match that search."
@@ -1082,7 +1098,9 @@ async function loadAdminMembers() {
       return;
     }
     for (const member of data) adminMembersList.append(createMemberItem(member));
-    adminMembersStatus.textContent = "Showing up to 100 private membership records.";
+    adminMembersStatus.textContent = term
+      ? "Showing up to 100 matching private records."
+      : "Showing up to 100 private membership records.";
   } catch (error) {
     if (requestId !== memberListRequestId || adminDashboard.hidden) return;
     adminMembersStatus.textContent = "Unable to load membership records. Please try again.";
