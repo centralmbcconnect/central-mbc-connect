@@ -123,6 +123,17 @@
     }
     #ministry-form textarea { resize: vertical; }
     #ministry-form label { display: block; text-align: left; }
+    #member-form input[type="text"],
+    #member-form input[type="email"],
+    #member-form input[type="tel"] {
+      box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #aab8ad;
+      border-radius: 6px; font: inherit; color: inherit; background: white;
+    }
+    #member-form label { display: block; text-align: left; }
+    #member-search {
+      box-sizing: border-box; width: 100%; max-width: 600px; padding: 10px;
+      border: 1px solid #aab8ad; border-radius: 6px; font: inherit;
+    }
   </style>
 </head>
 <body>
@@ -215,8 +226,32 @@
 </button>
   <section aria-labelledby="membership-heading">
     <h3 id="membership-heading">Church Membership</h3>
-    <p>Membership records and contact information.</p>
-    <p><em>Coming soon.</em></p>
+    <p>Private membership contact records, available only to approved administrators.</p>
+    <form id="member-form">
+      <input type="hidden" id="member-id">
+      <p><label for="member-name">Full name</label>
+        <input type="text" id="member-name" maxlength="200" required>
+      </p>
+      <p><label for="member-email">Email address (optional)</label>
+        <input type="email" id="member-email" maxlength="254" autocomplete="off">
+      </p>
+      <p><label for="member-phone">Phone number (optional)</label>
+        <input type="tel" id="member-phone" maxlength="40" autocomplete="off">
+      </p>
+      <div class="announcement-actions">
+        <button type="submit" id="save-member-button">Save Member</button>
+        <button type="button" id="cancel-member-edit" hidden>Cancel Edit</button>
+      </div>
+      <p id="member-form-status" role="status"></p>
+    </form>
+    <p><label for="member-search">Search membership records</label><br>
+      <input type="search" id="member-search" maxlength="200" placeholder="Name, email, or phone">
+    </p>
+    <div class="announcement-actions">
+      <button type="button" id="refresh-members">Refresh Members</button>
+    </div>
+    <p id="admin-members-status" role="status">Membership records are ready to load.</p>
+    <div id="admin-members-list"></div>
   </section>  <section aria-labelledby="ministry-heading">
     <h3 id="ministry-heading">Ministry Management</h3>
     <p>Create ministry listings here. Published ministries appear on the public homepage.</p>
@@ -447,6 +482,20 @@ const cancelMinistryEditButton = document.getElementById("cancel-ministry-edit")
 const refreshMinistriesButton = document.getElementById("refresh-ministries");
 const adminMinistriesStatus = document.getElementById("admin-ministries-status");
 const adminMinistriesList = document.getElementById("admin-ministries-list");
+const memberForm = document.getElementById("member-form");
+const memberId = document.getElementById("member-id");
+const memberName = document.getElementById("member-name");
+const memberEmail = document.getElementById("member-email");
+const memberPhone = document.getElementById("member-phone");
+const memberFormStatus = document.getElementById("member-form-status");
+const saveMemberButton = document.getElementById("save-member-button");
+const cancelMemberEditButton = document.getElementById("cancel-member-edit");
+const memberSearch = document.getElementById("member-search");
+const refreshMembersButton = document.getElementById("refresh-members");
+const adminMembersStatus = document.getElementById("admin-members-status");
+const adminMembersList = document.getElementById("admin-members-list");
+let memberSaveInProgress = false;
+let memberListRequestId = 0;
 let ministrySaveInProgress = false;
 let ministryListRequestId = 0;
 let eventSaveInProgress = false;
@@ -963,6 +1012,111 @@ async function deleteMinistry(ministry) {
   }
 }
 
+function createMemberItem(member) {
+  const article = document.createElement("article");
+  article.className = "announcement-item";
+  const heading = document.createElement("h4");
+  heading.textContent = member.full_name;
+  const details = document.createElement("p");
+  details.className = "announcement-date";
+  const contact = [member.email, member.phone].filter(Boolean);
+  details.textContent = contact.length ? contact.join(" · ") : "No contact details provided.";
+  const updated = document.createElement("p");
+  updated.className = "announcement-date";
+  updated.textContent = "Record added: " + new Date(member.created_at).toLocaleDateString("en-US", {
+    timeZone: "America/Chicago", dateStyle: "medium"
+  });
+  const actions = document.createElement("div");
+  actions.className = "announcement-actions";
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.textContent = "Edit";
+  edit.addEventListener("click", () => {
+    memberId.value = member.id;
+    memberName.value = member.full_name;
+    memberEmail.value = member.email || "";
+    memberPhone.value = member.phone || "";
+    saveMemberButton.textContent = "Update Member";
+    cancelMemberEditButton.hidden = false;
+    memberFormStatus.textContent = "Editing member record.";
+    memberName.focus();
+  });
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.textContent = "Delete";
+  remove.addEventListener("click", () => deleteMember(member));
+  actions.append(edit, remove);
+  article.append(heading, details, updated, actions);
+  return article;
+}
+
+async function loadAdminMembers() {
+  if (adminDashboard.hidden) return;
+  const requestId = ++memberListRequestId;
+  refreshMembersButton.disabled = true;
+  adminMembersStatus.textContent = "Loading membership records...";
+  adminMembersList.replaceChildren();
+  try {
+    if (!(await verifyAnnouncementAdmin())) {
+      adminDashboard.hidden = true;
+      resetMemberForm();
+      return;
+    }
+    const term = memberSearch.value.trim();
+    let query = supabase
+      .from("church_members")
+      .select("id, full_name, email, phone, created_at");
+    if (term) {
+      const escaped = term.replace(/[\\%_]/g, "\\function clearAdminRecords() {");
+      query = query.or("full_name.ilike.%" + escaped + "%,email.ilike.%" + escaped + "%,phone.ilike.%" + escaped + "%");
+    }
+    const { data, error } = await query
+      .order("full_name", { ascending: true })
+      .limit(100);
+    if (requestId !== memberListRequestId || adminDashboard.hidden) return;
+    if (error) throw error;
+    if (!data.length) {
+      adminMembersStatus.textContent = term
+        ? "No membership records match that search."
+        : "No membership records yet. Add one above.";
+      return;
+    }
+    for (const member of data) adminMembersList.append(createMemberItem(member));
+    adminMembersStatus.textContent = "Showing up to 100 private membership records.";
+  } catch (error) {
+    if (requestId !== memberListRequestId || adminDashboard.hidden) return;
+    adminMembersStatus.textContent = "Unable to load membership records. Please try again.";
+  } finally {
+    if (requestId === memberListRequestId) refreshMembersButton.disabled = false;
+  }
+}
+
+function resetMemberForm() {
+  memberForm.reset();
+  memberId.value = "";
+  saveMemberButton.textContent = "Save Member";
+  cancelMemberEditButton.hidden = true;
+  memberFormStatus.textContent = "";
+}
+
+async function deleteMember(member) {
+  if (!window.confirm("Delete the private membership record for " + member.full_name + "? This cannot be undone.")) return;
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const { data, error } = await supabase
+      .from("church_members")
+      .delete()
+      .eq("id", member.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw error || new Error("Member record was not deleted.");
+    resetMemberForm();
+    await loadAdminMembers();
+  } catch (error) {
+    adminMembersStatus.textContent = "Could not delete the membership record. Please try again.";
+  }
+}
+
 function clearAdminRecords() {
   recordsRequestId += 1;addRecordRequestId += 1;
   recordsButton.disabled = true;recordsSearch.disabled = true;
@@ -982,6 +1136,10 @@ let recoveryVerified = false;
 
 supabase.auth.onAuthStateChange((event) => {  if (event === "SIGNED_OUT") {
     adminDashboard.hidden = true;
+    memberListRequestId += 1;
+    adminMembersList.replaceChildren();
+    adminMembersStatus.textContent = "Membership records are ready to load.";
+    resetMemberForm();
     clearAdminRecords();
   }
   if (event === "PASSWORD_RECOVERY") {
@@ -1079,6 +1237,7 @@ adminDashboard.hidden = false;
 loadAdminAnnouncements();
 loadAdminEvents();
 loadAdminMinistries();
+loadAdminMembers();
 recordsButton.disabled = false;
   recordsSearch.disabled = false;
 recordsStatus.textContent = "Select Load Records to view records.";;
@@ -1195,6 +1354,54 @@ recordsList.append(article);
     }
   }
 });
+refreshMembersButton.addEventListener("click", loadAdminMembers);
+cancelMemberEditButton.addEventListener("click", resetMemberForm);
+memberSearch.addEventListener("input", () => {
+  window.clearTimeout(memberSearchTimer);
+  memberSearchTimer = window.setTimeout(loadAdminMembers, 250);
+});
+
+memberForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (adminDashboard.hidden || memberSaveInProgress) return;
+  const fullName = memberName.value.trim();
+  const email = memberEmail.value.trim();
+  const phone = memberPhone.value.trim();
+  if (!fullName || fullName.length > 200 || email.length > 254 || phone.length > 40) {
+    memberFormStatus.textContent = "Check the name and contact details, then try again.";
+    return;
+  }
+  memberSaveInProgress = true;
+  saveMemberButton.disabled = true;
+  memberFormStatus.textContent = "Saving private membership record...";
+  try {
+    if (!(await verifyAnnouncementAdmin())) throw new Error("Administrator access required.");
+    const values = {
+      full_name: fullName,
+      email: email || null,
+      phone: phone || null
+    };
+    let result;
+    if (memberId.value) {
+      result = await supabase.from("church_members")
+        .update(values).eq("id", memberId.value).select("id").maybeSingle();
+    } else {
+      result = await supabase.from("church_members")
+        .insert(values).select("id").single();
+    }
+    if (result.error || !result.data) throw result.error || new Error("Member record was not saved.");
+    resetMemberForm();
+    memberFormStatus.textContent = "Membership record saved.";
+    await loadAdminMembers();
+  } catch (error) {
+    memberFormStatus.textContent = "Could not save the membership record. Please try again.";
+  } finally {
+    memberSaveInProgress = false;
+    saveMemberButton.disabled = false;
+  }
+});
+
+let memberSearchTimer;
 refreshMinistriesButton.addEventListener("click", loadAdminMinistries);
 cancelMinistryEditButton.addEventListener("click", resetMinistryForm);
 
