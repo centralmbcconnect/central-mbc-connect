@@ -134,6 +134,17 @@
       box-sizing: border-box; width: 100%; max-width: 600px; padding: 10px;
       border: 1px solid #aab8ad; border-radius: 6px; font: inherit;
     }
+      #finance-entry-form input, #finance-entry-form select, #finance-budget-form input, #finance-month {
+      box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #aab8ad;
+      border-radius: 6px; font: inherit; color: inherit; background: white;
+    }
+    #finance-entry-form label, #finance-budget-form label { display: block; text-align: left; }
+    .finance-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .finance-summary > div { padding: 12px; border: 1px solid #d8dfd8; border-radius: 6px; background: white; }
+    .finance-summary strong { display: block; font-size: 0.9rem; }
+    .finance-summary span { display: block; margin-top: 6px; font-size: 1.2rem; }
+    .finance-row { padding: 12px 0; border-top: 1px solid #d8dfd8; }
+    .finance-row:first-child { border-top: 0; }
   </style>
 </head>
 <body>
@@ -338,8 +349,33 @@
     <div id="admin-announcements-list"></div>
   </section>  <section aria-labelledby="finance-heading">
     <h3 id="finance-heading">Financial Administration</h3>
-    <p>Church budgets, expenses, and financial reports.</p>
-    <p><em>Coming soon.</em></p>
+    <p>Manage church budgets, income, expenses, and monthly summaries. Do not enter individual members’ giving details.</p>
+    <form id="finance-entry-form">
+      <h4>Record Income or Expense</h4>
+      <input type="hidden" id="finance-entry-id">
+      <p><label for="finance-entry-date">Date</label><input type="date" id="finance-entry-date" required></p>
+      <p><label for="finance-entry-type">Type</label><select id="finance-entry-type" required><option value="income">Income</option><option value="expense">Expense</option></select></p>
+      <p><label for="finance-entry-category">Category</label><input type="text" id="finance-entry-category" maxlength="100" required></p>
+      <p><label for="finance-entry-description">Description (optional)</label><input type="text" id="finance-entry-description" maxlength="1000"></p>
+      <p><label for="finance-entry-amount">Amount ($)</label><input type="number" id="finance-entry-amount" min="0.01" max="9999999999.99" step="0.01" required></p>
+      <div class="announcement-actions"><button type="submit" id="finance-entry-save">Save Entry</button><button type="button" id="finance-entry-cancel" hidden>Cancel Edit</button></div>
+      <p id="finance-entry-status" role="status"></p>
+    </form>
+    <form id="finance-budget-form">
+      <h4>Set a Monthly Budget</h4>
+      <input type="hidden" id="finance-budget-id">
+      <p><label for="finance-budget-month">Month</label><input type="month" id="finance-budget-month" required></p>
+      <p><label for="finance-budget-category">Category</label><input type="text" id="finance-budget-category" maxlength="100" required></p>
+      <p><label for="finance-budget-amount">Planned amount ($)</label><input type="number" id="finance-budget-amount" min="0.01" max="9999999999.99" step="0.01" required></p>
+      <div class="announcement-actions"><button type="submit" id="finance-budget-save">Save Budget</button><button type="button" id="finance-budget-cancel" hidden>Cancel Edit</button></div>
+      <p id="finance-budget-status" role="status"></p>
+    </form>
+    <p><label for="finance-month">Monthly report</label><input type="month" id="finance-month"></p>
+    <div class="announcement-actions"><button type="button" id="finance-refresh">Refresh Financial Summary</button></div>
+    <div class="finance-summary" id="finance-summary" aria-live="polite"></div>
+    <h4>Monthly Entries</h4><div id="finance-entries"></div>
+    <h4>Monthly Budgets</h4><div id="finance-budgets"></div>
+    <p id="finance-status" role="status">Financial records are ready to load.</p>
   </section>  <section aria-labelledby="records-heading">
     <h3 id="records-heading">Administrative Records</h3>
     <p>View records available to approved administrators.</p>  <p>
@@ -1642,5 +1678,7 @@ addRecordForm.addEventListener("submit", async (event) => {
   }
 });
 </script>
+<script type="module" src="financial_admin.js"></script>
+<script type="module" src="financial_admin.js"></script>
 </body>
 </html>
