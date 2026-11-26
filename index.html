@@ -166,6 +166,15 @@
     }
     #sermon-form textarea { resize: vertical; }
     #sermon-form label { display: block; text-align: left; }
+
+    .devotional-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:18px 0; }
+    .devotional-controls h3 { margin:0; font-size:1.1rem; }
+    .devotional-controls button { border:0; border-radius:6px; background:#194b35; color:#fff; padding:10px 12px; font:inherit; cursor:pointer; }
+    .devotional-controls button:disabled { opacity:.5; cursor:not-allowed; }
+    .devotional-week { margin:12px 0; padding:14px; border:1px solid #d8dfd8; border-radius:8px; background:#f7f6ef; text-align:left; }
+    .devotional-week h4 { margin:0 0 8px; }
+    .devotional-week p { margin:5px 0; line-height:1.5; }
+    .devotional-rhythm { margin-top:18px; font-style:italic; }
   </style>
 </head>
 <body>
@@ -213,6 +222,20 @@
       <h2 id="public-events-heading">Upcoming Church Events</h2>
       <p id="public-events-status" role="status">Loading events...</p>
       <div id="public-events-list"></div>
+    </section>
+
+    <section class="card devotional-panel" aria-labelledby="devotional-panel-heading">
+      <h2 id="devotional-panel-heading">2027 Monthly Devotional Guide</h2>
+      <p>Follow the 2027 theme, <strong>Rooted and Established</strong> (Colossians 2:6–7), with a Scripture and reflection for each week.</p>
+      <div class="devotional-controls" aria-label="Choose devotional month">
+        <button type="button" id="devotional-previous" aria-label="Previous devotional month">Previous Month</button>
+        <h3 id="devotional-month-title" aria-live="polite">January 2027</h3>
+        <button type="button" id="devotional-next" aria-label="Next devotional month">Next Month</button>
+      </div>
+      <p id="devotional-theme"></p>
+      <p id="devotional-monthly-scripture"></p>
+      <div id="devotional-weeks" aria-live="polite"></div>
+      <p class="devotional-rhythm">Read the passage • Reflect on Christ • Pray • Put the Word into practice.</p>
     </section>
 
         <section class="card" aria-labelledby="public-sermons-heading">
@@ -1731,6 +1754,7 @@ addRecordForm.addEventListener("submit", async (event) => {
 <script type="module" src="financial_admin.js"></script>
 <script type="module" src="financial_admin.js"></script>
 <script type="module" src="church_calendar.js?v=5bf5196"></script>
+<script type="module" src="devotional_panel.js?v=2027.1"></script>
 <script type="module" src="church_videos.js"></script>
 </body>
 </html>
