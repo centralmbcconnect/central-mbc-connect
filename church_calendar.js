@@ -9,6 +9,8 @@ const status = document.getElementById("calendar-status");
 const title = document.getElementById("calendar-month-title");
 const previous = document.getElementById("calendar-previous");
 const next = document.getElementById("calendar-next");
+const publicEventsList = document.getElementById("public-events-list");
+const publicEventsStatus = document.getElementById("public-events-status");
 const chicagoDate = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit"
 });
@@ -29,6 +31,47 @@ function formatTime(value) {
   return new Date(value).toLocaleTimeString("en-US", {
     timeZone:"America/Chicago",hour:"numeric",minute:"2-digit"
   });
+}
+function drawUpcomingEvents(events, monthLabel) {
+  publicEventsList.replaceChildren();
+  if (!events.length) {
+    publicEventsStatus.textContent = "There are no upcoming events for " + monthLabel + ".";
+    return;
+  }
+  for (const event of events) {
+    const item = document.createElement("article");
+    item.className = "announcement-item";
+    const heading = document.createElement("h3");
+    heading.textContent = event.title;
+    item.append(heading);
+
+    const date = document.createElement("p");
+    date.className = "announcement-meta";
+    date.textContent = new Date(event.starts_at).toLocaleString("en-US", {
+      timeZone: "America/Chicago",
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
+    item.append(date);
+
+    if (event.location) {
+      const location = document.createElement("p");
+      location.textContent = event.location;
+      item.append(location);
+    }
+    if (event.description) {
+      const description = document.createElement("p");
+      description.textContent = event.description;
+      item.append(description);
+    }
+    publicEventsList.append(item);
+  }
+  publicEventsStatus.textContent = "Showing " + events.length + " upcoming event" +
+    (events.length === 1 ? "" : "s") + " for " + monthLabel + ".";
 }
 function drawCalendar(events, year, month) {
   grid.replaceChildren();
@@ -90,6 +133,8 @@ async function loadCalendar() {
   const year=shownMonth.getFullYear(), month=shownMonth.getMonth();
   title.textContent=shownMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
   status.textContent="Loading events...";
+  publicEventsStatus.textContent="Loading events for "+title.textContent+"...";
+  publicEventsList.replaceChildren();
   grid.replaceChildren();
   const now=new Date();
   const today=getChicagoDateParts(now);
@@ -107,13 +152,19 @@ async function loadCalendar() {
       return d.year===year && d.month===month;
     });
     drawCalendar(monthEvents,year,month);
+    drawUpcomingEvents(monthEvents,title.textContent);
     status.textContent=monthEvents.length
       ? "Showing "+monthEvents.length+" published event"+(monthEvents.length===1?"":"s")+" for "+title.textContent+"."
       : "No published events for "+title.textContent+".";
   } catch(error) {
-    if(request===requestId) status.textContent="Unable to load the church calendar. Please try again.";
+    if(request===requestId) {
+      status.textContent="Unable to load the church calendar. Please try again.";
+      publicEventsList.replaceChildren();
+      publicEventsStatus.textContent="Upcoming events are temporarily unavailable. Please try again.";
+    }
   }
 }
+window.refreshChurchCalendar = loadCalendar;
 previous.addEventListener("click",()=>{
   const current=getChicagoDateParts(new Date()); const floor=new Date(current.year,current.month,1);
   const candidate=new Date(shownMonth.getFullYear(),shownMonth.getMonth()-1,1);
