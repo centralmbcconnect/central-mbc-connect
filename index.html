@@ -145,6 +145,27 @@
     .finance-summary span { display: block; margin-top: 6px; font-size: 1.2rem; }
     .finance-row { padding: 12px 0; border-top: 1px solid #d8dfd8; }
     .finance-row:first-child { border-top: 0; }
+      .calendar-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 14px 0; }
+    .calendar-toolbar h3 { margin: 0; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+    .calendar-weekday { padding: 8px 2px; text-align: center; font-weight: bold; }
+    .calendar-day { min-height: 92px; min-width: 0; padding: 5px; border: 1px solid #d8dfd8; border-radius: 5px; background: white; text-align: left; overflow-wrap: anywhere; }
+    .calendar-day.outside-month { background: #f1f0e9; color: #6b756c; }
+    .calendar-day-number { display: block; font-weight: bold; margin-bottom: 4px; }
+    .calendar-event { display: block; margin-top: 4px; padding: 3px; border-radius: 3px; background: #e8f0eb; font-size: .78rem; line-height: 1.2; }
+    .calendar-event-time { font-weight: bold; display: block; }
+    #public-sermons-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .sermon-card { min-width: 0; padding: 12px; border: 1px solid #d8dfd8; border-radius: 8px; text-align: left; }
+    .sermon-card iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 6px; }
+    .sermon-card h3 { margin-bottom: 6px; }
+    .social-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+    .social-links a { display: inline-block; padding: 10px 16px; border-radius: 6px; background: #194b35; color: white; text-decoration: none; }
+    #sermon-form input[type="text"], #sermon-form input[type="url"], #sermon-form textarea {
+      box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #aab8ad;
+      border-radius: 6px; font: inherit; color: inherit; background: white;
+    }
+    #sermon-form textarea { resize: vertical; }
+    #sermon-form label { display: block; text-align: left; }
   </style>
 </head>
 <body>
@@ -177,10 +198,36 @@
       <div id="public-announcements-list"></div>
     </section>
 
+        <section class="card" aria-labelledby="calendar-heading">
+      <h2 id="calendar-heading">Church Calendar</h2>
+      <p id="calendar-status" role="status">Loading church calendar...</p>
+      <div class="calendar-toolbar">
+        <button type="button" id="calendar-previous">Previous Month</button>
+        <h3 id="calendar-month-title" aria-live="polite"></h3>
+        <button type="button" id="calendar-next">Next Month</button>
+      </div>
+      <div id="church-calendar-grid" class="calendar-grid" role="grid" aria-labelledby="calendar-month-title"></div>
+    </section>
+
     <section class="card" aria-labelledby="public-events-heading">
       <h2 id="public-events-heading">Upcoming Church Events</h2>
       <p id="public-events-status" role="status">Loading events...</p>
       <div id="public-events-list"></div>
+    </section>
+
+        <section class="card" aria-labelledby="public-sermons-heading">
+      <h2 id="public-sermons-heading">Sermons and Videos</h2>
+      <p id="public-sermons-status" role="status">Loading sermons and videos...</p>
+      <div id="public-sermons-list"></div>
+    </section>
+
+    <section class="card" aria-labelledby="social-links-heading">
+      <h2 id="social-links-heading">Connect with Central MBC</h2>
+      <p>Watch services and sermons on our YouTube channel.</p>
+      <div class="social-links">
+        <a href="https://www.youtube.com/@CentralMBCNOLA" target="_blank" rel="noopener noreferrer">YouTube</a>
+      </div>
+      <p>Facebook and Instagram links will be added when the official page addresses are confirmed.</p>
     </section>
 
     <section class="card" aria-labelledby="public-ministries-heading">
@@ -347,7 +394,26 @@
     </div>
     <p id="admin-announcements-status" role="status">Announcements are ready to load.</p>
     <div id="admin-announcements-list"></div>
-  </section>  <section aria-labelledby="finance-heading">
+  </section>  <section aria-labelledby="sermons-heading">
+    <h3 id="sermons-heading">Sermons and Videos</h3>
+    <p>Add a YouTube video link. Drafts stay private; published videos appear on the public homepage.</p>
+    <form id="sermon-form">
+      <input type="hidden" id="sermon-id">
+      <p><label for="sermon-title">Video title</label><input type="text" id="sermon-title" maxlength="200" required></p>
+      <p><label for="sermon-description">Description (optional)</label><textarea id="sermon-description" rows="3" maxlength="3000"></textarea></p>
+      <p><label for="sermon-url">YouTube video link</label><input type="url" id="sermon-url" maxlength="2048" placeholder="https://youtu.be/..." required></p>
+      <p><label><input type="checkbox" id="sermon-published"> Publish on the public homepage</label></p>
+      <div class="announcement-actions">
+        <button type="submit" id="sermon-save">Save Video</button>
+        <button type="button" id="sermon-cancel" hidden>Cancel Edit</button>
+      </div>
+      <p id="sermon-form-status" role="status"></p>
+    </form>
+    <div class="announcement-actions"><button type="button" id="sermon-refresh">Refresh Videos</button></div>
+    <p id="sermon-admin-status" role="status">Videos are ready to load.</p>
+    <div id="sermon-admin-list"></div>
+  </section>
+  <section aria-labelledby="finance-heading">
     <h3 id="finance-heading">Financial Administration</h3>
     <p>Manage church budgets, income, expenses, and monthly summaries. Do not enter individual members’ giving details.</p>
     <form id="finance-entry-form">
@@ -1680,5 +1746,7 @@ addRecordForm.addEventListener("submit", async (event) => {
 </script>
 <script type="module" src="financial_admin.js"></script>
 <script type="module" src="financial_admin.js"></script>
+<script type="module" src="church_calendar.js"></script>
+<script type="module" src="church_videos.js"></script>
 </body>
 </html>
