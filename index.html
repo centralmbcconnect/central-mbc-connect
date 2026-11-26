@@ -202,9 +202,16 @@
       <h2>Worship With Us</h2>
       <p>Sunday Worship: 7:00 AM</p>
       <p>Sunday School: 9:15 AM</p>
-      <p>Wednesday Prayer and Bible Study:
-         4:45 PM</p>
+      <p>Wednesday Prayer and Bible Study: 4:45 PM</p>
     </div>
+
+    <section class="card" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">Contact and Visit Us</h2>
+      <p><strong>Address:</strong> 1438 Alabo Street, New Orleans, LA 70117</p>
+      <p><a href="https://www.google.com/maps/search/?api=1&amp;query=1438+Alabo+Street%2C+New+Orleans%2C+LA+70117" target="_blank" rel="noopener noreferrer">Get directions</a></p>
+      <p><strong>Church phone:</strong> <a href="tel:+15049474637">(504) 947-4637</a></p>
+      <p><strong>Church email:</strong> <a href="mailto:centralmissionarybc1438@gmail.com">centralmissionarybc1438@gmail.com</a></p>
+    </section>
 
     <section class="card" aria-labelledby="public-announcements-heading">
       <h2 id="public-announcements-heading">Church Announcements</h2>
@@ -1020,9 +1027,42 @@ function createMinistryItem(ministry, includeActions) {
   return article;
 }
 
+const defaultPublicMinistries = [
+  { name: "Sunday School", description: "Bible teaching and Christian learning for the congregation.", leader: "Bro. James Johnson", meeting_info: "Sundays at 9:15 AM" },
+  { name: "Prayer and Bible Study", description: "Midweek prayer, Scripture study, and spiritual growth.", leader: "", meeting_info: "Wednesdays at 4:45 PM" },
+  { name: "Women’s Ministry", description: "Fellowship, spiritual growth, and service for women.", leader: "Sis. Helen Johnson", meeting_info: "Second Saturdays at 12 noon" },
+  { name: "Youth Ministry", description: "Bible study, fellowship, and activities for young people.", leader: "Sis. Iriana White and Sis. Jamie Johnson", meeting_info: "Monthly study and activities; details announced" },
+  { name: "Men’s Ministry", description: "Fellowship, spiritual growth, and service among the men of the church.", leader: "Bro. Kevin Sturgis", meeting_info: "Schedule to be announced" },
+  { name: "Couples’ Ministry", description: "Fellowship and biblical encouragement for couples.", leader: "Rev. Richard Burton and Sis. Lorraine Burton", meeting_info: "Schedule to be announced" },
+  { name: "Music Ministry", description: "Supports congregational worship through music.", leader: "", meeting_info: "" },
+  { name: "Usher Ministry", description: "Welcomes worshipers and assists during church services.", leader: "", meeting_info: "" },
+  { name: "Street Witnessing and Community Outreach", description: "Shares the gospel and serves neighbors in the community.", leader: "", meeting_info: "Third Saturdays at 10:00 AM" },
+  { name: "Kitchen Ministry", description: "Supports church fellowship and events through food service.", leader: "Sis. Stephanie Kyles and Bro. Benny Kyles", meeting_info: "" }
+];
+
+function mergePublicMinistries(records) {
+  const entries = new Map();
+  for (const ministry of defaultPublicMinistries) {
+    entries.set(ministry.name.toLowerCase().replace(/[^a-z0-9]/g, ""), ministry);
+  }
+  for (const ministry of records || []) {
+    const key = ministry.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const current = entries.get(key) || {};
+    entries.set(key, {
+      ...current,
+      ...ministry,
+      description: ministry.description || current.description || "",
+      leader: ministry.leader || current.leader || "",
+      meeting_info: ministry.meeting_info || current.meeting_info || ""
+    });
+  }
+  return Array.from(entries.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 async function loadPublicMinistries() {
   publicMinistriesStatus.textContent = "Loading ministries...";
   publicMinistriesList.replaceChildren();
+  let records = [];
   try {
     const { data, error } = await supabase
       .from("church_ministries")
@@ -1031,17 +1071,13 @@ async function loadPublicMinistries() {
       .order("name", { ascending: true })
       .limit(30);
     if (error) throw error;
-    if (!data.length) {
-      publicMinistriesStatus.textContent = "Ministry listings will be added soon.";
-      return;
-    }
-    for (const ministry of data) publicMinistriesList.append(createMinistryItem(ministry, false));
+    records = data || [];
     publicMinistriesStatus.textContent = "";
   } catch (error) {
-    publicMinistriesList.replaceChildren();
-    publicMinistriesStatus.textContent =
-      "Ministry listings are temporarily unavailable. Please check back soon.";
+    publicMinistriesStatus.textContent = "Showing current ministry information. Online updates are temporarily unavailable.";
   }
+  const ministries = mergePublicMinistries(records);
+  for (const ministry of ministries) publicMinistriesList.append(createMinistryItem(ministry, false));
 }
 
 async function loadAdminMinistries() {
@@ -1755,6 +1791,6 @@ addRecordForm.addEventListener("submit", async (event) => {
 <script type="module" src="financial_admin.js"></script>
 <script type="module" src="upcoming_events.js?v=20261126"></script>
 <script type="module" src="devotional_panel.js?v=2027.1"></script>
-<script type="module" src="church_videos.js"></script>
+<script type="module" src="church_videos.js?v=20261126-contact"></script>
 </body>
 </html>
