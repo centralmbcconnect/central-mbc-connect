@@ -92,3 +92,5 @@ a{color:inherit}
 .tab.active{color:#1d593d;font-weight:700}
 .tab.active:before{content:'';position:absolute;width:34px;height:27px;border-radius:18px;background:#edf4ed;z-index:-1;margin-top:-4px}
 @media(min-width:600px){.app-shell{border-left:1px solid #e5eae3;border-right:1px solid #e5eae3}.page{padding-left:26px;padding-right:26px}.hero{margin-top:22px}}
+
+.app-status{margin:14px 20px 0}
