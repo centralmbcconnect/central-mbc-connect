@@ -151,6 +151,7 @@ export default function App() {
     </header>
 
     <main className="screen">
+      {memberMessage && tab !== 'members' && <p className="status app-status" role="status">{memberMessage}<button aria-label="Dismiss" onClick={() => setMemberMessage('')}><X size={15}/></button></p>}
       {tab === 'home' && <section className="page">
         <div className="hero">
           <div className="eyebrow">{greeting} · NEW ORLEANS</div>
@@ -181,7 +182,6 @@ export default function App() {
 
       {tab === 'events' && <section className="page">
         <div className="page-intro"><span className="eyebrow">CHURCH CALENDAR</span><h1>Upcoming events</h1><p>Browse what’s happening at Central, month by month.</p></div>
-        {memberMessage && <p className="status">{memberMessage}<button aria-label="Dismiss" onClick={() => setMemberMessage('')}><X size={15}/></button></p>}
         {loading ? <p className="muted">Loading events…</p> : error ? <p className="notice">{error}</p> : events.length ?
           <div className="stack">{events.map((event) => <EventCard key={event.id} event={event} onRemind={remind} />)}</div> :
           <div className="empty"><CalendarDays size={24}/><strong>No upcoming events</strong><span>Check again soon for new church events.</span></div>}
