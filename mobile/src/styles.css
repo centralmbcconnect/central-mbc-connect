@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
+
+:root{font-family:'DM Sans',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#172b22;background:#f6f7f3;font-synthesis:none;text-rendering:optimizeLegibility;font-weight:400;font-size:16px}
+*{box-sizing:border-box}
+body{margin:0;min-width:320px;min-height:100dvh;background:#f6f7f3}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #d5ac52;outline-offset:3px}
+a{color:inherit}
+.app-shell{max-width:560px;min-height:100dvh;margin:auto;background:#fbfcf9;box-shadow:0 0 50px #183b2b12;display:flex;flex-direction:column}
+.topbar{height:68px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:11px;padding:0 20px;background:#123e2d;color:#fff}
+.brand-mark{width:38px;height:38px;border-radius:12px;background:#e4c16a;color:#123e2d;display:grid;place-items:center}
+.brand-copy{display:flex;flex-direction:column;line-height:1.05;font-size:15px;font-weight:700;letter-spacing:.01em}
+.brand-copy small{font-size:9px;letter-spacing:.22em;margin-top:4px;color:#dfc875}
+.icon-button{margin-left:auto;width:40px;height:40px;border:0;background:transparent;color:#fff;display:grid;place-items:center;border-radius:50%}
+.screen{flex:1;padding-bottom:92px}
+.page{padding:0 20px 28px}
+.hero{margin:16px 0 28px;padding:26px 23px 25px;border-radius:20px;background:linear-gradient(145deg,#154a35,#0e3224);color:#fff;position:relative;overflow:hidden}
+.hero:after{content:'✦';position:absolute;right:16px;top:22px;color:#d5b75f66;font-size:80px}
+.eyebrow{display:block;font-size:10px;letter-spacing:.15em;font-weight:700;color:#74897d}
+.hero .eyebrow{color:#dfc875}
+.hero h1,.page-intro h1{font-family:'Playfair Display',Georgia,serif;font-size:clamp(28px,7vw,38px);line-height:1.1;letter-spacing:-.02em;margin:16px 0 10px}
+.hero h1 em{color:#e3c978;font-weight:600}
+.hero p{margin:0 0 20px;color:#e2e9e4;font-size:14px}
+.hero-action,.primary-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:10px;background:#dfc36f;color:#183c2b;font-weight:700;padding:12px 16px}
+.section{margin:28px 0}
+.section-heading{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:13px}
+.section h2,.page-intro h1{margin-bottom:4px}
+.section-heading h2{font-family:'Playfair Display',Georgia,serif;font-size:23px;margin:5px 0 0}
+.text-button{border:0;background:none;color:#21583d;font-weight:700;padding:7px 0}
+.notice-card,.event-card,.week-card,.video-card,.member-panel{background:#fff;border:1px solid #e2e8e0;border-radius:15px;box-shadow:0 5px 18px #183b2b08}
+.notice-card{padding:16px;margin:10px 0}
+.notice-card h3,.event-copy h3,.week-card h3,.video-copy h3{font-size:16px;margin:9px 0 5px}
+.notice-card p,.video-copy p{font-size:14px;color:#64746a;line-height:1.5;margin:0}
+.pill{display:inline-block;font-size:9px;letter-spacing:.11em;color:#24553e;background:#eaf1ec;border-radius:30px;padding:5px 8px;font-weight:700}
+.service-card{display:flex;gap:14px;align-items:flex-start;padding:18px;border-radius:15px;background:#f0f3ec;border:1px solid #e1e8de}
+.service-icon{width:38px;height:38px;display:grid;place-items:center;background:#fff;border-radius:12px;color:#21583d;flex:none}
+.service-card p{margin:7px 0 0;font-size:13px;color:#4c6154}
+.address-card{display:flex;align-items:center;gap:12px;padding:16px;border-radius:14px;background:#fff;border:1px solid #e2e8e0;text-decoration:none;color:#22563e}
+.address-card span{flex:1;display:flex;flex-direction:column;gap:3px}
+.address-card small{font-size:12px;color:#6d7b71}
+.page-intro{padding:27px 0 20px}
+.page-intro h1{font-size:34px;margin-top:8px}
+.page-intro p{color:#65746a;line-height:1.5;margin:8px 0 0;font-size:14px}
+.stack{display:grid;gap:12px}
+.event-card{display:flex;gap:14px;padding:15px}
+.date-mark{width:52px;height:58px;border-radius:12px;background:#edf3ed;color:#1b573b;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.date-mark span{font-size:9px;font-weight:700;letter-spacing:.09em}
+.date-mark strong{font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1.1}
+.event-copy{min-width:0;flex:1}
+.event-copy h3{margin:1px 0 5px}
+.event-copy>p{font-size:12px;line-height:1.45;margin:0;color:#5f7065}
+.event-copy small{display:flex;align-items:center;gap:5px;color:#6a7b6f;margin-top:7px;font-size:12px}
+.event-copy .event-description{margin-top:8px}
+.remind-button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:#1e5a3d;font-size:12px;font-weight:700;padding:10px 2px 0}
+.month-selector{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+.month-selector h2{font-family:'Playfair Display',Georgia,serif;font-size:21px;margin:5px 0 0}
+.month-selector button{width:40px;height:40px;border-radius:50%;border:1px solid #dce5dd;background:#fff;color:#194b35;font-size:26px;line-height:1}
+.month-selector button:disabled{opacity:.35;cursor:not-allowed}
+.devotional-theme{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:15px 16px;border-radius:14px;background:#154832;color:#fff;margin-bottom:13px}
+.devotional-theme span{font-family:'Playfair Display',Georgia,serif;font-size:17px}
+.devotional-theme strong{font-size:11px;color:#e4c16a;white-space:nowrap}
+.week-card{padding:15px}
+.week-card h3{font-family:'Playfair Display',Georgia,serif;font-size:18px}
+.week-card p{display:flex;align-items:center;gap:7px;color:#64746a;font-size:13px;margin:0}
+.outline-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;padding:12px 15px;border-radius:10px;border:1px solid #275a40;background:#fff;color:#1d563a;font-weight:700;font-size:13px;text-decoration:none}
+.outline-button.saved{background:#e9f1ea}
+.fine-print,.help-text{font-size:12px;color:#748278;line-height:1.5}
+.video-card{overflow:hidden}
+.video-frame{aspect-ratio:16/9;background:#111}
+.video-frame iframe{width:100%;height:100%;border:0}
+.video-copy{padding:15px}
+.video-copy h3{font-family:'Playfair Display',Georgia,serif;font-size:18px}
+.empty{min-height:180px;border:1px dashed #ccd8ce;border-radius:15px;background:#f7f9f5;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;text-align:center;padding:20px;color:#1b563a}
+.empty span{font-size:13px;color:#718075}
+.member-panel{padding:22px;text-align:center}
+.member-icon{margin:auto;width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:#eef4ee;color:#1b573b}
+.member-panel h2{font-family:'Playfair Display',Georgia,serif;margin:14px 0 5px}
+.muted{color:#718075;font-size:14px;line-height:1.55}
+.login-form{text-align:left;display:grid;gap:14px;margin-top:20px}
+.login-form label{display:grid;gap:7px;font-size:13px;font-weight:600;color:#3c5145}
+.login-form input{width:100%;height:46px;padding:0 12px;border:1px solid #d5ded6;border-radius:9px;background:#fbfcf9}
+.login-form .primary-button{height:46px;margin-top:2px}
+.help-text a{color:#1e5a3d;font-weight:700}
+.status-copy{font-size:13px;line-height:1.5;color:#54705c}
+.privacy-note{margin:15px 0;padding:13px 15px;border-radius:11px;background:#f0f3ec;color:#64746a;font-size:12px;line-height:1.5}
+.status,.notice{background:#fff7df;border-radius:10px;padding:12px;color:#5b4a19;font-size:13px;line-height:1.45}
+.status{display:flex;justify-content:space-between;gap:8px}
+.status button{border:0;background:transparent;color:inherit}
+.tabbar{position:fixed;z-index:10;bottom:0;left:50%;transform:translateX(-50%);width:min(560px,100%);padding:8px 8px max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border-top:1px solid #e7ebe5;box-shadow:0 -6px 22px #183b2b0a}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:transparent;color:#819087;font-size:10px;padding:5px 0}
+.tab.active{color:#1d593d;font-weight:700}
+.tab.active:before{content:'';position:absolute;width:34px;height:27px;border-radius:18px;background:#edf4ed;z-index:-1;margin-top:-4px}
+@media(min-width:600px){.app-shell{border-left:1px solid #e5eae3;border-right:1px solid #e5eae3}.page{padding-left:26px;padding-right:26px}.hero{margin-top:22px}}
+
+.app-status{margin:14px 20px 0}
