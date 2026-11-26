@@ -77,7 +77,11 @@ async function loadPublicVideos() {
       .select("id,title,description,youtube_video_id,created_at")
       .eq("published",true).order("created_at",{ascending:false}).limit(50);
     if(error) throw error;
-    if(!data.length){publicStatus.textContent="No sermons or videos have been posted yet.";return;}
+    if(!data.length){
+      addEmbed(publicList,"ljk4RgWur9I","Central MBC Sermon","Watch this public sermon on the Central MBC YouTube channel.");
+      publicStatus.textContent="Featured sermon from Central MBC.";
+      return;
+    }
     for(const item of data) addEmbed(publicList,item.youtube_video_id,item.title,item.description);
     publicStatus.textContent="";
   } catch(error) { publicStatus.textContent="Unable to load sermons and videos right now."; }
