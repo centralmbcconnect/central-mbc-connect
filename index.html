@@ -852,28 +852,12 @@ function createEventItem(event, includeActions) {
 }
 
 async function loadPublicEvents() {
-  publicEventsStatus.textContent = "Loading events...";
-  publicEventsList.replaceChildren();
-  try {
-    const { data, error } = await supabase
-      .from("church_events")
-      .select("id, title, description, location, starts_at, ends_at")
-      .eq("published", true)
-      .gte("starts_at", new Date().toISOString())
-      .order("starts_at", { ascending: true })
-      .limit(20);
-    if (error) throw error;
-    if (!data.length) {
-      publicEventsStatus.textContent = "There are no upcoming events.";
-      return;
-    }
-    for (const event of data) publicEventsList.append(createEventItem(event, false));
-    publicEventsStatus.textContent = "";
-  } catch (error) {
-    publicEventsList.replaceChildren();
-    publicEventsStatus.textContent =
-      "Upcoming events are temporarily unavailable. Please check back soon.";
+  if (typeof window.refreshChurchCalendar === "function") {
+    await window.refreshChurchCalendar();
+    return;
   }
+  publicEventsList.replaceChildren();
+  publicEventsStatus.textContent = "Calendar events are loading...";
 }
 
 async function loadAdminEvents() {
