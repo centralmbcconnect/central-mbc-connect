@@ -13,8 +13,8 @@ const chicagoDate = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit"
 });
 const weekdays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-let shownMonth = new Date();
-shownMonth = new Date(shownMonth.getFullYear(), shownMonth.getMonth(), 1);
+const initialMonth = getChicagoDateParts(new Date());
+let shownMonth = new Date(initialMonth.year, initialMonth.month, 1);
 let requestId = 0;
 
 function getChicagoDateParts(value) {
@@ -92,7 +92,8 @@ async function loadCalendar() {
   status.textContent="Loading events...";
   grid.replaceChildren();
   const now=new Date();
-  const currentMonth=new Date(now.getFullYear(),now.getMonth(),1);
+  const today=getChicagoDateParts(now);
+  const currentMonth=new Date(today.year,today.month,1);
   previous.disabled=shownMonth<=currentMonth;
   try {
     const {data,error}=await supabase.from("church_events")
@@ -114,7 +115,7 @@ async function loadCalendar() {
   }
 }
 previous.addEventListener("click",()=>{
-  const current=new Date(); const floor=new Date(current.getFullYear(),current.getMonth(),1);
+  const current=getChicagoDateParts(new Date()); const floor=new Date(current.year,current.month,1);
   const candidate=new Date(shownMonth.getFullYear(),shownMonth.getMonth()-1,1);
   if(candidate>=floor){shownMonth=candidate;loadCalendar();}
 });
